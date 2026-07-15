@@ -1,0 +1,10 @@
+{
+  "project_name": "RefahDpi",
+  "module": "app",
+  "default_variant": "developDebug",
+  "variants": {
+    "develop": "developDebug",
+    "staging": "stagingDebug",
+    "production": "productionDebug"
+  }
+}

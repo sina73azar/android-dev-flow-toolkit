@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "android-dev-flow"
+version = "0.1.0"
+description = "Interactive automation for Android and Gradle development workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Mr.C" }
+]
+license = { text = "MIT" }
+keywords = ["android", "adb", "gradle", "automation", "developer-tools"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Topic :: Software Development :: Build Tools"
+]
+
+[project.scripts]
+adf = "android_dev_flow.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

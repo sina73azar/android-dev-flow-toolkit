@@ -1,103 +1,63 @@
-# scripts_mrc
+# android-dev-flow
 
-A small home for practical and fun command-line scripts.
+Interactive developer automation for Android and Gradle projects.
 
-All scripts in this starter set use only Python's standard library, so you can
-run them without installing packages.
+This project is starting as a practical toolkit for daily Android development:
+building variants, selecting devices/emulators, installing APKs, launching apps,
+and later capturing logs, bug reports, and GitLab build context.
+
+The first version intentionally uses Python's standard library only, so it can
+run on Linux, macOS, and Windows with Python 3.10+.
 
 ## Quick start
 
-```bash
-python3 scripts/passphrase.py
-python3 scripts/focus_timer.py --minutes 1
-python3 scripts/file_sorter.py ~/Downloads
-python3 scripts/dice_roller.py 2d6
-```
-
-Use `--help` on any script to see its options:
+From this repository:
 
 ```bash
-python3 scripts/file_sorter.py --help
+PYTHONPATH=src python3 -m android_dev_flow --project /path/to/android/project
 ```
 
-## Scripts
-
-- `file_sorter.py`: preview or apply a simple folder cleanup by file extension.
-- `passphrase.py`: generate readable passphrases for throwaway accounts or notes.
-- `focus_timer.py`: run a terminal countdown timer.
-- `dice_roller.py`: roll dice expressions like `2d6`, `d20`, or `4d6+2`.
-- `adb_avd_info.sh`: inspect installed Android Studio emulator definitions while
-  they are off.
-- `adb_emulator_info.sh`: print useful Android device/emulator info.
-- `android_build_run.sh`: start an Android emulator, wait for boot, prepare it,
-  then install an APK or build, install, and launch a selected Gradle variant.
-
-## Android emulator scripts
-
-List your installed Android Studio emulators:
+Or after installing in editable mode:
 
 ```bash
-./scripts/android_build_run.sh --list
+python3 -m pip install -e .
+adf --project /path/to/android/project
 ```
 
-Inspect an emulator while it is off:
+Inside an Android project, create `.android-dev-flow.json`:
+
+```json
+{
+  "project_name": "RefahDpi",
+  "module": "app",
+  "default_variant": "developDebug",
+  "variants": {
+    "develop": "developDebug",
+    "staging": "stagingDebug",
+    "production": "productionDebug"
+  }
+}
+```
+
+Then run:
 
 ```bash
-./scripts/adb_avd_info.sh 3a_API_35
+adf
 ```
 
-On this machine, the detected AVDs are:
+## Current features
 
-```text
-3a_API_35
-Pixel_3a_API_22
-```
+- Interactive menu.
+- Project config loading from `.android-dev-flow.json`.
+- Gradle wrapper detection across Linux, macOS, and Windows.
+- ADB and emulator tool detection from `ANDROID_HOME`, `ANDROID_SDK_ROOT`,
+  common SDK locations, or `PATH`.
+- Build a selected Gradle variant.
+- Locate the generated APK through Gradle's `output-metadata.json`.
+- Select an online adb device, or start an installed AVD when no device is
+  online.
+- Install and launch the generated APK.
 
-Start an emulator and prepare it for development:
+## Roadmap
 
-```bash
-./scripts/android_build_run.sh 3a_API_35
-```
-
-After it is running, get device info:
-
-```bash
-./scripts/adb_emulator_info.sh
-```
-
-Install an APK after booting:
-
-```bash
-./scripts/android_build_run.sh 3a_API_35 --apk /path/to/app-debug.apk
-```
-
-Build, install, and launch a Gradle Android project. The default variant is
-`developDebug`:
-
-```bash
-./scripts/android_build_run.sh 3a_API_35 --project /path/to/android/project
-```
-
-Build a specific variant:
-
-```bash
-./scripts/android_build_run.sh 3a_API_35 --project /path/to/android/project --variant stagingDebug
-```
-
-When the script installs an APK, it now launches the installed app by default.
-Skip that with `--no-launch`, or force the launch package with `--package`:
-
-```bash
-./scripts/android_build_run.sh 3a_API_35 --project /path/to/android/project --package com.example.app
-```
-
-The prepare step wakes the emulator, waits for Android to finish booting,
-keeps the screen awake while plugged in, and disables system animations.
-
-## Script ideas to add next
-
-- Batch rename photos by date.
-- Find duplicate files by hash.
-- Convert CSV files to JSON.
-- Generate a daily note from a template.
-- Pick a random lunch, workout, or study task.
+See [ROADMAP.md](ROADMAP.md).
