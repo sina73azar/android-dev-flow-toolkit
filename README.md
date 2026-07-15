@@ -1,4 +1,4 @@
-# android-dev-flow
+# android-dev-flow-toolkit
 
 Interactive developer automation for Android and Gradle projects.
 

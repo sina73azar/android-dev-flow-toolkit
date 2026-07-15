@@ -51,7 +51,7 @@ def list_avds() -> list[str]:
 
 
 def start_avd(avd_name: str) -> None:
-    log_file = Path(tempfile.gettempdir()) / f"android-dev-flow-{avd_name}.log"
+    log_file = Path(tempfile.gettempdir()) / f"android-dev-flow-toolkit-{avd_name}.log"
     print(f"Starting AVD {avd_name}")
     print(f"Emulator log: {log_file}")
     popen_kwargs = {}

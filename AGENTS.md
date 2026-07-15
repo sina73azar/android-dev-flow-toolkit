@@ -2,7 +2,7 @@
 
 ## Project
 
-`android-dev-flow` is a reusable automation toolkit for Android and Gradle
+`android-dev-flow-toolkit` is a reusable automation toolkit for Android and Gradle
 development workflows.
 
 ## Current Agenda
