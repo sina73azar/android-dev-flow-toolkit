@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from . import adb
+from .apk_package import PackageResult, package_apk
 from .config import (
     ConfigError,
     ProjectConfig,
@@ -33,6 +34,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_command(argv[1:])
     if argv and argv[0] == "apk":
         return apk_command(argv[1:])
+    if argv and argv[0] == "package":
+        return package_command(argv[1:])
     if argv and argv[0] == "devices":
         return devices_command(argv[1:])
     if argv and argv[0] == "avds":
@@ -40,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(
         description="Interactive Android and Gradle development workflow helper.",
-        epilog="Commands: init, validate, build, run, apk, devices, avds. Use '<command> --help' for details.",
+        epilog="Commands: init, validate, build, run, apk, package, devices, avds. Use '<command> --help' for details.",
     )
     parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
     parser.add_argument("--variant", help="Build and run this variant label or exact Gradle variant without opening the menu.")
@@ -205,6 +208,35 @@ def apk_command(argv: list[str]) -> int:
         return 1
 
 
+def package_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Build and export a shareable APK package.")
+    add_project_argument(parser)
+    parser.add_argument("variant", nargs="?", help="Variant label or exact Gradle variant. Defaults to configured default.")
+    parser.add_argument("--no-build", action="store_true", help="Package the latest existing APK without building first.")
+    parser.add_argument("--output-dir", help="Directory for exported APK and metadata. Defaults to project dist/.")
+    args = parser.parse_args(argv)
+
+    try:
+        config = load_valid_config(args.project)
+        variant = resolve_variant(config, args.variant)
+        if not args.no_build:
+            print(f"Building variant: {variant}")
+            build_variant(config.project_dir, config.module, variant)
+
+        apk = find_apk_output(config.project_dir, config.module, variant)
+        result = package_apk(config, apk, output_dir=resolve_output_dir(config, args.output_dir))
+        print_package_result(result)
+        return 0
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except ProjectValidationError:
+        return 1
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
 def devices_command(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="List adb devices.")
     parser.parse_args(argv)
@@ -237,6 +269,16 @@ def avds_command(argv: list[str]) -> int:
 
 def add_project_argument(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
+
+
+def resolve_output_dir(config: ProjectConfig, output_dir: str | None) -> Path | None:
+    if output_dir is None:
+        return None
+
+    path = Path(output_dir).expanduser()
+    if path.is_absolute():
+        return path
+    return config.project_dir / path
 
 
 def load_valid_config(project_arg: str | None) -> ProjectConfig:
@@ -441,3 +483,9 @@ def print_apk(apk: ApkOutput) -> None:
         print(f"Application ID: {apk.application_id}")
     if apk.version_name:
         print(f"Version: {apk.version_name} ({apk.version_code})")
+
+
+def print_package_result(result: PackageResult) -> None:
+    print(f"Packaged APK: {result.apk_path}")
+    print(f"Metadata: {result.metadata_path}")
+    print(f"SHA-256: {result.sha256}")

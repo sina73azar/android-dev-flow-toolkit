@@ -161,6 +161,7 @@ repeatable terminal workflows:
 adf build develop
 adf run staging
 adf apk production
+adf package develop
 adf devices
 adf avds
 ```
@@ -180,10 +181,43 @@ adf run production --no-launch
 `adf apk` prints an existing generated APK path. Run `adf build` first if the
 APK has not been generated yet.
 
+## APK packaging
+
+Use `adf package` to create a shareable APK copy and metadata file:
+
+```bash
+adf package develop
+```
+
+By default this builds first, finds the generated APK through Gradle's
+`output-metadata.json`, and writes files to `dist/`:
+
+```text
+dist/RefahDpi-developDebug-v1.2.3-42.apk
+dist/RefahDpi-developDebug-v1.2.3-42.txt
+```
+
+The metadata file includes project/module/variant details, application ID,
+version name/code, source APK path, packaged APK path, git branch, git commit,
+build timestamp, and SHA-256.
+
+Package an existing APK without rebuilding:
+
+```bash
+adf package develop --no-build
+```
+
+Write to a custom folder:
+
+```bash
+adf package staging --output-dir /path/to/company/share
+```
+
 ## Current features
 
 - Interactive menu.
-- Non-interactive commands: `build`, `run`, `apk`, `devices`, and `avds`.
+- Non-interactive commands: `build`, `run`, `apk`, `package`, `devices`, and
+  `avds`.
 - Project config initialization with `adf init`.
 - Project config and Gradle layout validation with `adf validate`.
 - Project config loading from `.android-dev-flow.json`.
@@ -192,6 +226,7 @@ APK has not been generated yet.
   common SDK locations, or `PATH`.
 - Build a selected Gradle variant.
 - Locate the generated APK through Gradle's `output-metadata.json`.
+- Export shareable APK copies and metadata files with `adf package`.
 - Select an online adb device, or start an installed AVD when no device is
   online.
 - Install and launch the generated APK.

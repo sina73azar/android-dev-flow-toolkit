@@ -4,7 +4,16 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from android_dev_flow.cli import apk_command, build_command, parse_variant_args, resolve_variant, run_command
+from android_dev_flow.apk_package import PackageResult
+from android_dev_flow.cli import (
+    apk_command,
+    build_command,
+    package_command,
+    parse_variant_args,
+    resolve_output_dir,
+    resolve_variant,
+    run_command,
+)
 from android_dev_flow.config import ConfigError, ProjectConfig
 from android_dev_flow.gradle import ApkOutput
 
@@ -83,6 +92,48 @@ class CliTests(unittest.TestCase):
         self.assertEqual(status, 0)
         find_apk_output.assert_called_once_with(config.project_dir, config.module, "productionDebug")
 
+    def test_package_command_builds_by_default(self) -> None:
+        config = sample_config()
+        apk = sample_apk()
+        result = sample_package_result()
+
+        with (
+            patch("builtins.print"),
+            patch("android_dev_flow.cli.load_valid_config", return_value=config),
+            patch("android_dev_flow.cli.build_variant") as build_variant,
+            patch("android_dev_flow.cli.find_apk_output", return_value=apk),
+            patch("android_dev_flow.cli.package_apk", return_value=result) as package_apk,
+        ):
+            status = package_command(["develop"])
+
+        self.assertEqual(status, 0)
+        build_variant.assert_called_once_with(config.project_dir, config.module, "developDebug")
+        package_apk.assert_called_once_with(config, apk, output_dir=None)
+
+    def test_package_command_can_skip_build_and_use_output_dir(self) -> None:
+        config = sample_config()
+        apk = sample_apk()
+        result = sample_package_result()
+        output_dir = config.project_dir / "shared"
+
+        with (
+            patch("builtins.print"),
+            patch("android_dev_flow.cli.load_valid_config", return_value=config),
+            patch("android_dev_flow.cli.build_variant") as build_variant,
+            patch("android_dev_flow.cli.find_apk_output", return_value=apk),
+            patch("android_dev_flow.cli.package_apk", return_value=result) as package_apk,
+        ):
+            status = package_command(["staging", "--no-build", "--output-dir", "shared"])
+
+        self.assertEqual(status, 0)
+        build_variant.assert_not_called()
+        package_apk.assert_called_once_with(config, apk, output_dir=output_dir)
+
+    def test_resolve_output_dir_keeps_absolute_paths(self) -> None:
+        config = sample_config()
+
+        self.assertEqual(resolve_output_dir(config, "/tmp/shared"), Path("/tmp/shared"))
+
 
 def sample_config() -> ProjectConfig:
     return ProjectConfig(
@@ -105,6 +156,14 @@ def sample_apk() -> ApkOutput:
         application_id="com.example.sample",
         version_name="1.0",
         version_code=1,
+    )
+
+
+def sample_package_result() -> PackageResult:
+    return PackageResult(
+        apk_path=Path("/tmp/sample-app/dist/SampleApp-developDebug-v1.0-1.apk"),
+        metadata_path=Path("/tmp/sample-app/dist/SampleApp-developDebug-v1.0-1.txt"),
+        sha256="abc123",
     )
 
 

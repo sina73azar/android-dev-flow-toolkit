@@ -14,10 +14,11 @@ Status: implemented baseline.
 - Initialize project settings with `adf init`.
 - Validate project layout and config with `adf validate`.
 - Show an interactive menu.
-- Support non-interactive `build`, `run`, `apk`, `devices`, and `avds`
+- Support non-interactive `build`, `run`, `apk`, `package`, `devices`, and `avds`
   commands.
 - Build a selected Gradle variant.
 - Detect generated APKs from `output-metadata.json`.
+- Export shareable APK copies and metadata files.
 - Select an online adb device when available.
 - Start an installed AVD when no adb device is online.
 - Install and launch the selected variant.
@@ -38,45 +39,7 @@ Validation currently checks:
 
 These are the next implementation slices before broader device/debugging work.
 
-### 1. APK Packaging And Sharing
-
-Add an APK export flow for manual QA and company sharing workflows:
-
-```bash
-adf package develop
-```
-
-Planned output:
-
-```text
-dist/RefahDpi-developDebug-v1.2.3-42.apk
-dist/RefahDpi-developDebug-v1.2.3-42.txt
-```
-
-The metadata text file should include:
-
-- project name
-- module
-- variant
-- application id
-- version name and version code
-- source APK path
-- packaged APK path
-- git branch
-- git commit hash
-- build timestamp
-- SHA-256
-
-Planned behavior:
-
-- Accept variant labels and exact Gradle variant names.
-- Build before packaging by default.
-- Support `--no-build` to package an existing APK.
-- Write packages to `dist/` by default.
-- Support `--output-dir` for company share folders.
-- Keep generated filenames filesystem-safe and inspectable.
-
-### 2. Stronger Gradle Awareness
+### 1. Stronger Gradle Awareness
 
 Improve validation and command selection without making builds slower by
 default:
@@ -92,7 +55,7 @@ default:
 - Keep normal `adf validate` fast and local.
 - Improve error messages for common flavor/build-type mismatches.
 
-### 3. Test Coverage
+### 2. Test Coverage
 
 Grow tests around behavior that should stay stable:
 
@@ -125,6 +88,32 @@ Implemented behavior:
 - Keep `adf` with no subcommand as the interactive menu.
 - Preserve `--project`, `--serial`, `--avd`, and `--no-launch` where useful.
 
+### Completed: APK Packaging And Sharing
+
+Implemented APK export for manual QA and company sharing workflows:
+
+```bash
+adf package develop
+```
+
+Implemented output:
+
+```text
+dist/RefahDpi-developDebug-v1.2.3-42.apk
+dist/RefahDpi-developDebug-v1.2.3-42.txt
+```
+
+Implemented behavior:
+
+- Accept variant labels and exact Gradle variant names.
+- Build before packaging by default.
+- Support `--no-build` to package an existing APK.
+- Write packages to `dist/` by default.
+- Support `--output-dir` for company share folders.
+- Keep generated filenames filesystem-safe and inspectable.
+- Include metadata for project, module, variant, application ID, version,
+  source APK, packaged APK, git branch, git commit, timestamp, and SHA-256.
+
 ## Phase 2: Device Utilities
 
 - Device and emulator info screen.
@@ -145,14 +134,18 @@ Implemented behavior:
 
 ## Phase 4: APK Packaging
 
-- Build APK only.
-- Open generated APK folder.
-- Copy APK path to clipboard when possible.
-- Generate a text summary next to APK:
+- Status: implemented baseline with `adf build`, `adf apk`, and
+  `adf package`.
+- Later: open generated APK folder.
+- Later: copy APK path to clipboard when possible.
+- Implemented: generate a text summary next to APK with:
   - project name
+  - module
   - variant
   - version name/code
   - application id
+  - source APK path
+  - packaged APK path
   - git branch
   - commit hash
   - build timestamp
