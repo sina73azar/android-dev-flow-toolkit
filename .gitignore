@@ -11,6 +11,7 @@ dist/
 .venv/
 venv/
 .env
+.android-dev-flow.json
 .DS_Store
 tmp/
 output/

@@ -35,14 +35,13 @@ Inside an Android project, `adf init` creates `.android-dev-flow.json`:
 
 ```json
 {
-  "project_name": "RefahDpi",
+  "project_name": "MyApp",
   "module": "app",
-  "default_variant": "developDebug",
-  "variants": {
-    "develop": "developDebug",
-    "staging": "stagingDebug",
-    "production": "productionDebug"
-  }
+  "modules": [
+    "app"
+  ],
+  "default_variant": "debug",
+  "variants": "auto"
 }
 ```
 
@@ -113,32 +112,65 @@ adf init
 ```
 
 This creates `.android-dev-flow.json` with detected project name/module when
-possible and the default development variants:
+possible and automatic variant detection:
 
 ```json
 {
-  "project_name": "RefahDpi",
+  "project_name": "MyApp",
   "module": "app",
-  "default_variant": "developDebug",
-  "variants": {
-    "develop": "developDebug",
-    "staging": "stagingDebug",
-    "production": "productionDebug"
-  }
+  "modules": [
+    "app"
+  ],
+  "default_variant": "debug",
+  "variants": "auto"
 }
 ```
+
+If the Gradle project has multiple Android application modules, `adf init`
+stores all detected runnable modules in `modules` and keeps `module` as the
+default module for scriptable commands:
+
+```json
+{
+  "project_name": "MyApp",
+  "module": "app",
+  "modules": [
+    "app",
+    "analoge_clock",
+    "memory_game"
+  ],
+  "default_variant": "debug",
+  "variants": "auto"
+}
+```
+
+The default module prefers `app` when it exists, otherwise the first detected
+Android application module. Override the default when needed:
+
+```bash
+adf init --module app
+adf init --module mobile
+```
+
+With `variants` set to `auto`, the toolkit reads the configured module's
+`build.gradle` or `build.gradle.kts`, detects common Android `productFlavors`
+and `buildTypes`, and exposes detected variants in the menu and commands. For
+an app without flavors, labels include `debug` and `release`. For a flavored
+app, labels combine flavor and build type, such as `<flavor>-debug` and
+`<flavor>-release`. The default variant prefers debug when available.
 
 You can customize values during initialization:
 
 ```bash
 adf init \
-  --name RefahDpi \
+  --name MyApp \
   --module app \
-  --default-variant developDebug \
-  --variant develop=developDebug \
-  --variant staging=stagingDebug \
-  --variant production=productionDebug
+  --default-variant qaDebug \
+  --variant qa=qaDebug \
+  --variant demo=demoDebug
 ```
+
+Passing `--variant` writes a fixed variant map instead of `variants: "auto"`.
 
 Overwrite an existing config only when intended:
 
@@ -152,30 +184,54 @@ Validate project setup before building or running:
 adf validate
 ```
 
-## Non-interactive commands
+## Usage help
 
-Use `adf` without a subcommand for the interactive menu. Use subcommands for
-repeatable terminal workflows:
+Show the complete usage guide:
 
 ```bash
-adf build develop
-adf run staging
-adf apk production
-adf package develop
+adf help
+```
+
+Show command-specific help and examples:
+
+```bash
+adf help init
+adf help build
+adf help run
+adf help package
+```
+
+## Non-interactive commands
+
+Use `adf` without a subcommand for the interactive menu. The menu exposes Run,
+Build, Show APK, and Package APK actions for each configured variant, plus
+device, AVD, and project info actions.
+
+When multiple Android application modules are configured, Run asks which
+runnable module and variant to use. Project info lists configured Android
+application modules and marks the default module.
+
+Use subcommands for repeatable terminal workflows:
+
+```bash
+adf build <variant-label>
+adf run <variant-label>
+adf apk <variant-label>
+adf package <variant-label>
 adf devices
 adf avds
 ```
 
-Variant arguments can be labels from `.android-dev-flow.json`, such as
-`develop`, or exact Gradle variant names, such as `developDebug`. If a variant
-is omitted, the configured `default_variant` is used.
+Variant arguments can be detected labels from `.android-dev-flow.json` or exact
+Gradle variant names. If a variant is omitted, the configured `default_variant`
+is used.
 
 Useful run options:
 
 ```bash
-adf run develop --serial emulator-5554
-adf run staging --avd Pixel_8_API_35
-adf run production --no-launch
+adf run <variant-label> --serial emulator-5554
+adf run <variant-label> --avd Pixel_8_API_35
+adf run <variant-label> --no-launch
 ```
 
 `adf apk` prints an existing generated APK path. Run `adf build` first if the
@@ -186,15 +242,15 @@ APK has not been generated yet.
 Use `adf package` to create a shareable APK copy and metadata file:
 
 ```bash
-adf package develop
+adf package <variant-label>
 ```
 
 By default this builds first, finds the generated APK through Gradle's
 `output-metadata.json`, and writes files to `dist/`:
 
 ```text
-dist/RefahDpi-developDebug-v1.2.3-42.apk
-dist/RefahDpi-developDebug-v1.2.3-42.txt
+dist/MyApp-debug-v1.2.3-42.apk
+dist/MyApp-debug-v1.2.3-42.txt
 ```
 
 The metadata file includes project/module/variant details, application ID,
@@ -204,13 +260,13 @@ build timestamp, and SHA-256.
 Package an existing APK without rebuilding:
 
 ```bash
-adf package develop --no-build
+adf package <variant-label> --no-build
 ```
 
 Write to a custom folder:
 
 ```bash
-adf package staging --output-dir /path/to/company/share
+adf package <variant-label> --output-dir /path/to/company/share
 ```
 
 ## Current features
@@ -221,6 +277,7 @@ adf package staging --output-dir /path/to/company/share
 - Project config initialization with `adf init`.
 - Project config and Gradle layout validation with `adf validate`.
 - Project config loading from `.android-dev-flow.json`.
+- Automatic Android variant detection from module Gradle files.
 - Gradle wrapper detection across Linux, macOS, and Windows.
 - ADB and emulator tool detection from `ANDROID_HOME`, `ANDROID_SDK_ROOT`,
   common SDK locations, or `PATH`.

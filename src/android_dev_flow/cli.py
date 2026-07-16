@@ -22,8 +22,13 @@ class ProjectValidationError(RuntimeError):
     pass
 
 
+MenuAction = tuple[str, str, str | None]
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] in {"help", "usage"}:
+        return help_command(argv[1:])
     if argv and argv[0] == "init":
         return init_command(argv[1:])
     if argv and argv[0] == "validate":
@@ -43,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(
         description="Interactive Android and Gradle development workflow helper.",
-        epilog="Commands: init, validate, build, run, apk, package, devices, avds. Use '<command> --help' for details.",
+        epilog="Commands: help, init, validate, build, run, apk, package, devices, avds. Use 'help' for full usage.",
     )
     parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
     parser.add_argument("--variant", help="Build and run this variant label or exact Gradle variant without opening the menu.")
@@ -76,18 +81,196 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
 
+def help_command(argv: list[str]) -> int:
+    if not argv:
+        print(usage_guide())
+        return 0
+
+    command = argv[0]
+    usage = command_usage(command)
+    if usage is None:
+        commands = ", ".join(command_names())
+        print(f"Unknown command: {command}", file=sys.stderr)
+        print(f"Commands: {commands}", file=sys.stderr)
+        return 1
+
+    print(usage)
+    return 0
+
+
+def command_names() -> list[str]:
+    return ["help", "init", "validate", "build", "run", "apk", "package", "devices", "avds"]
+
+
+def usage_guide() -> str:
+    return """Android Dev Flow Toolkit
+
+Usage:
+  adf
+  adf help [command]
+  adf init [--project DIR] [--module MODULE] [--force]
+  adf validate [--project DIR]
+  adf build [VARIANT] [--project DIR]
+  adf run [VARIANT] [--project DIR] [--serial SERIAL] [--avd NAME] [--no-launch]
+  adf apk [VARIANT] [--project DIR]
+  adf package [VARIANT] [--project DIR] [--no-build] [--output-dir DIR]
+  adf devices
+  adf avds
+
+Setup:
+  cd /path/to/android/project
+  adf init
+  adf validate
+  adf
+
+Interactive menu:
+  Running adf without a command opens the menu. The menu includes Run, Build,
+  Show APK, and Package APK actions for each configured variant, plus device,
+  AVD, and project info actions. When multiple Android application modules are
+  configured, Run asks which module and variant to use.
+
+Variants:
+  VARIANT can be a detected label from .android-dev-flow.json or an exact
+  Gradle variant. If omitted, default_variant is used. With \"variants\":
+  \"auto\", Android variants are detected from the configured module build
+  file. The default variant prefers debug when available.
+
+Modules:
+  adf init detects Android application modules and writes them to the
+  "modules" list in .android-dev-flow.json. The "module" value is the default
+  module used by scriptable commands and older configs. When multiple modules
+  are configured, interactive Run asks which module and variant to use.
+
+Examples:
+  adf build
+  adf build <variant-label>
+  adf run <variant-label> --serial emulator-5554
+  adf run <variant-label> --avd Pixel_8_API_35 --no-launch
+  adf apk <variant-label>
+  adf package <variant-label> --output-dir /path/to/company/share
+
+Use adf help <command> for command-specific examples.""".strip()
+
+
+def command_usage(command: str) -> str | None:
+    usages = {
+        "help": """Usage:
+  adf help
+  adf help <command>
+
+Show the full usage guide or command-specific usage.
+
+Examples:
+  adf help
+  adf help init
+  adf help package""",
+        "init": """Usage:
+  adf init [--project DIR] [--name NAME] [--module MODULE] [--default-variant VARIANT] [--variant LABEL=VARIANT] [--force]
+
+Create .android-dev-flow.json for an Android/Gradle project.
+
+Behavior:
+  - Detects project name from Gradle settings when possible.
+  - Detects Android application modules and writes them to "modules".
+  - Uses --module as the default module when provided; otherwise prefers app.
+  - Writes \"variants\": \"auto\" unless fixed --variant mappings are provided.
+
+Examples:
+  adf init
+  adf init --module app
+  adf init --module mobile --force
+  adf init --variant debug=debug
+  adf init --variant <label>=<exactGradleVariant>""",
+        "validate": """Usage:
+  adf validate [--project DIR]
+
+Validate project configuration and Gradle layout.
+
+Checks:
+  - .android-dev-flow.json schema
+  - Gradle settings file
+  - Gradle wrapper
+  - configured module directory
+  - module build file
+  - configured variants/default variant
+
+Examples:
+  adf validate
+  adf validate --project /path/to/android/project""",
+        "build": """Usage:
+  adf build [VARIANT] [--project DIR]
+
+Build a configured Android variant and print the generated APK metadata.
+
+Examples:
+  adf build
+  adf build debug
+  adf build <variant-label>
+  adf build <exactGradleVariant> --project /path/to/android/project""",
+        "run": """Usage:
+  adf run [VARIANT] [--project DIR] [--serial SERIAL] [--avd NAME] [--no-launch]
+
+Build, install, and launch a configured Android variant.
+
+Examples:
+  adf run
+  adf run debug
+  adf run <variant-label> --serial emulator-5554
+  adf run <variant-label> --avd Pixel_8_API_35
+  adf run <variant-label> --no-launch""",
+        "apk": """Usage:
+  adf apk [VARIANT] [--project DIR]
+
+Print the latest generated APK path and metadata for a configured variant.
+Run adf build first if the APK has not been generated.
+
+Examples:
+  adf apk
+  adf apk debug
+  adf apk <variant-label>
+  adf apk <exactGradleVariant>""",
+        "package": """Usage:
+  adf package [VARIANT] [--project DIR] [--no-build] [--output-dir DIR]
+
+Build and export a shareable APK copy plus a metadata text file.
+The metadata includes project, module, variant, app id, version, source APK,
+packaged APK, git branch, git commit, timestamp, and SHA-256.
+
+Examples:
+  adf package
+  adf package debug
+  adf package <variant-label> --no-build
+  adf package <variant-label> --output-dir /path/to/company/share""",
+        "devices": """Usage:
+  adf devices
+
+List adb devices.
+
+Example:
+  adf devices""",
+        "avds": """Usage:
+  adf avds
+
+List installed Android Virtual Devices.
+
+Example:
+  adf avds""",
+    }
+    return usages.get(command)
+
+
 def init_command(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description="Create .android-dev-flow.json for an Android/Gradle project.")
     parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
     parser.add_argument("--name", help="Project display name. Defaults to Gradle rootProject.name or directory name.")
-    parser.add_argument("--module", help="Android app module. Defaults to detected app module or app.")
-    parser.add_argument("--default-variant", default="developDebug", help="Default Gradle variant.")
+    parser.add_argument("--module", help="Default Android app module. Defaults to app or the first detected app module.")
+    parser.add_argument("--default-variant", help="Default Gradle variant. Defaults to detected debug variant when available.")
     parser.add_argument(
         "--variant",
         action="append",
         default=[],
         metavar="LABEL=VARIANT",
-        help="Variant mapping. Can be used multiple times, for example --variant develop=developDebug.",
+        help="Variant mapping. Can be used multiple times, for example --variant <label>=<exactGradleVariant>.",
     )
     parser.add_argument("--force", action="store_true", help="Overwrite an existing .android-dev-flow.json.")
     args = parser.parse_args(argv)
@@ -336,16 +519,10 @@ def interactive_menu(config: ProjectConfig) -> int:
         print(f"Project: {config.project_dir}")
         print()
 
-        actions: list[tuple[str, str | None]] = []
-        for label, variant in config.variants.items():
-            suffix = " (default)" if variant == config.default_variant else ""
-            actions.append((f"Run {label}: {variant}{suffix}", variant))
+        actions = menu_actions(config)
 
-        for index, (label, _) in enumerate(actions, start=1):
+        for index, (label, _, _) in enumerate(actions, start=1):
             print(f"{index}. {label}")
-        print(f"{len(actions) + 1}. List devices")
-        print(f"{len(actions) + 2}. List AVDs")
-        print(f"{len(actions) + 3}. Project info")
         print("0. Exit")
 
         choice = input("> ").strip()
@@ -355,21 +532,124 @@ def interactive_menu(config: ProjectConfig) -> int:
         if choice.isdigit():
             selected = int(choice)
             if 1 <= selected <= len(actions):
-                variant = actions[selected - 1][1]
-                assert variant is not None
-                run_variant(config, variant, serial=None, avd_name=None, build_only=False, launch=True)
-                continue
-            if selected == len(actions) + 1:
-                print_devices()
-                continue
-            if selected == len(actions) + 2:
-                print_avds()
-                continue
-            if selected == len(actions) + 3:
-                print_project_info(config)
+                run_menu_action(config, actions[selected - 1])
                 continue
 
         print("Unknown choice.")
+
+
+def menu_actions(config: ProjectConfig) -> list[MenuAction]:
+    actions: list[MenuAction] = []
+    for label, variant in config.variants.items():
+        suffix = " (default)" if variant == config.default_variant else ""
+        actions.extend(
+            [
+                (f"Run {label}: {variant}{suffix}", "run", variant),
+                (f"Build {label}: {variant}{suffix}", "build", variant),
+                (f"Show APK {label}: {variant}{suffix}", "apk", variant),
+                (f"Package APK {label}: {variant}{suffix}", "package", variant),
+            ]
+        )
+
+    actions.extend(
+        [
+            ("List devices", "devices", None),
+            ("List AVDs", "avds", None),
+            ("Project info", "project_info", None),
+        ]
+    )
+    return actions
+
+
+def run_menu_action(config: ProjectConfig, action: MenuAction) -> None:
+    _, action_name, variant = action
+    if action_name == "run":
+        assert variant is not None
+        run_interactive_variant(config, variant)
+        return
+    if action_name == "build":
+        assert variant is not None
+        build_selected_variant(config, variant)
+        return
+    if action_name == "apk":
+        assert variant is not None
+        print_apk(find_apk_output(config.project_dir, config.module, variant))
+        return
+    if action_name == "package":
+        assert variant is not None
+        package_selected_variant(config, variant)
+        return
+    if action_name == "devices":
+        print_devices()
+        return
+    if action_name == "avds":
+        print_avds()
+        return
+    if action_name == "project_info":
+        print_project_info(config)
+        return
+
+    raise RuntimeError(f"unknown menu action: {action_name}")
+
+
+def run_interactive_variant(config: ProjectConfig, variant: str) -> None:
+    module_configs = runnable_module_configs(config)
+    if len(module_configs) == 1:
+        run_variant(config, variant, serial=None, avd_name=None, build_only=False, launch=True)
+        return
+
+    selected_config = choose_module_config(config, module_configs)
+    selected_variant = choose_variant(selected_config, "Select variant to run:")
+    run_variant(selected_config, selected_variant, serial=None, avd_name=None, build_only=False, launch=True)
+
+
+def runnable_module_configs(config: ProjectConfig) -> list[ProjectConfig]:
+    modules = list(config.application_modules)
+    if not modules:
+        return [config]
+    return [config_for_module(config, module) for module in modules]
+
+
+def config_for_module(config: ProjectConfig, module: str) -> ProjectConfig:
+    if module == config.module:
+        return config
+    return create_default_config(config.project_dir, project_name=config.project_name, module=module)
+
+
+def choose_module_config(current_config: ProjectConfig, configs: list[ProjectConfig]) -> ProjectConfig:
+    print("Select Android application module:")
+    for index, module_config in enumerate(configs, start=1):
+        suffix = " (configured)" if module_config.module == current_config.module else ""
+        print(f"{index}. {module_config.module}{suffix}")
+    selected = read_number(1, len(configs))
+    return configs[selected - 1]
+
+
+def choose_variant(config: ProjectConfig, prompt: str) -> str:
+    print(prompt)
+    variants = list(config.variants.items())
+    for index, (label, variant) in enumerate(variants, start=1):
+        suffix = " (default)" if variant == config.default_variant else ""
+        print(f"{index}. {label}: {variant}{suffix}")
+    selected = read_number(1, len(variants))
+    return variants[selected - 1][1]
+
+
+def build_selected_variant(config: ProjectConfig, variant: str) -> ApkOutput:
+    print(f"Building variant: {variant}")
+    build_variant(config.project_dir, config.module, variant)
+    apk = find_apk_output(config.project_dir, config.module, variant)
+    print_apk(apk)
+    return apk
+
+
+def package_selected_variant(config: ProjectConfig, variant: str) -> PackageResult:
+    print(f"Building variant: {variant}")
+    build_variant(config.project_dir, config.module, variant)
+    apk = find_apk_output(config.project_dir, config.module, variant)
+    result = package_apk(config, apk)
+    print_package_result(result)
+    return result
 
 
 def run_variant(
@@ -380,10 +660,7 @@ def run_variant(
     build_only: bool,
     launch: bool,
 ) -> None:
-    print(f"Building variant: {variant}")
-    build_variant(config.project_dir, config.module, variant)
-    apk = find_apk_output(config.project_dir, config.module, variant)
-    print_apk(apk)
+    apk = build_selected_variant(config, variant)
 
     if build_only:
         return
@@ -475,6 +752,13 @@ def print_project_info(config: ProjectConfig) -> None:
     print("Variants:")
     for label, variant in config.variants.items():
         print(f"  {label}: {variant}")
+
+    modules = list(config.application_modules)
+    if modules:
+        print("Application modules:")
+        for module in modules:
+            suffix = " (configured)" if module == config.module else ""
+            print(f"  {module}{suffix}")
 
 
 def print_apk(apk: ApkOutput) -> None:

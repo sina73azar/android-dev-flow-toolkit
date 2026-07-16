@@ -13,6 +13,13 @@ Status: implemented baseline.
 - Load project settings from `.android-dev-flow.json`.
 - Initialize project settings with `adf init`.
 - Validate project layout and config with `adf validate`.
+- Detect Android application modules during `adf init` and persist all runnable
+  modules in `.android-dev-flow.json`.
+- List configured Android application modules in project info.
+- Prompt for runnable module and variant during interactive Run when multiple
+  app modules are present.
+- Auto-detect Android variants from module Gradle files when
+  `variants` is set to `auto`.
 - Show an interactive menu.
 - Support non-interactive `build`, `run`, `apk`, `package`, `devices`, and `avds`
   commands.
@@ -46,6 +53,9 @@ default:
 
 - Detect available Gradle modules from `settings.gradle` and
   `settings.gradle.kts`.
+- Improve module detection for customized Gradle source sets and plugin
+  aliases.
+- Improve auto-detection for multi-dimension flavor matrices.
 - Optionally verify assemble tasks with Gradle when requested:
 
   ```bash
@@ -53,7 +63,7 @@ default:
   ```
 
 - Keep normal `adf validate` fast and local.
-- Improve error messages for common flavor/build-type mismatches.
+- Improve error messages for uncommon flavor/build-type mismatches.
 
 ### 2. Test Coverage
 
@@ -74,17 +84,17 @@ dependencies.
 Implemented scriptable commands that mirror common interactive menu actions:
 
 ```bash
-adf build develop
-adf run staging
+adf build <variant-label>
+adf run <variant-label>
 adf devices
 adf avds
-adf apk production
+adf apk <variant-label>
 ```
 
 Implemented behavior:
 
-- Accept variant labels from `.android-dev-flow.json`, such as `develop`.
-- Also accept exact Gradle variant names, such as `developDebug`.
+- Accept detected variant labels from `.android-dev-flow.json`.
+- Also accept exact Gradle variant names.
 - Keep `adf` with no subcommand as the interactive menu.
 - Preserve `--project`, `--serial`, `--avd`, and `--no-launch` where useful.
 
@@ -93,14 +103,14 @@ Implemented behavior:
 Implemented APK export for manual QA and company sharing workflows:
 
 ```bash
-adf package develop
+adf package <variant-label>
 ```
 
 Implemented output:
 
 ```text
-dist/RefahDpi-developDebug-v1.2.3-42.apk
-dist/RefahDpi-developDebug-v1.2.3-42.txt
+dist/MyApp-debug-v1.2.3-42.apk
+dist/MyApp-debug-v1.2.3-42.txt
 ```
 
 Implemented behavior:
