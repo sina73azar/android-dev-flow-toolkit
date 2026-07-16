@@ -27,10 +27,11 @@ python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e .
 
 cd /path/to/android/project
-adf --project .
+adf init
+adf
 ```
 
-Inside an Android project, create `.android-dev-flow.json`:
+Inside an Android project, `adf init` creates `.android-dev-flow.json`:
 
 ```json
 {
@@ -72,10 +73,17 @@ Then use the CLI from an Android project directory:
 
 ```bash
 cd /home/azarfarshi.s@drp.local/StudioProjects/kotlin_new_android_design
-adf --project .
+adf init
+adf validate
+adf
 ```
 
-If the Android project has `.android-dev-flow.json` in its root, this is enough:
+`adf init` creates `.android-dev-flow.json`. `adf validate` checks that the
+project has a Gradle settings file, Gradle wrapper, configured module, module
+build file, and valid variant names.
+
+If the Android project already has `.android-dev-flow.json` in its root, this
+is enough:
 
 ```bash
 adf
@@ -96,9 +104,59 @@ python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e .
 ```
 
+## Project setup
+
+From an Android project root, initialize the toolkit config:
+
+```bash
+adf init
+```
+
+This creates `.android-dev-flow.json` with detected project name/module when
+possible and the default development variants:
+
+```json
+{
+  "project_name": "RefahDpi",
+  "module": "app",
+  "default_variant": "developDebug",
+  "variants": {
+    "develop": "developDebug",
+    "staging": "stagingDebug",
+    "production": "productionDebug"
+  }
+}
+```
+
+You can customize values during initialization:
+
+```bash
+adf init \
+  --name RefahDpi \
+  --module app \
+  --default-variant developDebug \
+  --variant develop=developDebug \
+  --variant staging=stagingDebug \
+  --variant production=productionDebug
+```
+
+Overwrite an existing config only when intended:
+
+```bash
+adf init --force
+```
+
+Validate project setup before building or running:
+
+```bash
+adf validate
+```
+
 ## Current features
 
 - Interactive menu.
+- Project config initialization with `adf init`.
+- Project config and Gradle layout validation with `adf validate`.
 - Project config loading from `.android-dev-flow.json`.
 - Gradle wrapper detection across Linux, macOS, and Windows.
 - ADB and emulator tool detection from `ANDROID_HOME`, `ANDROID_SDK_ROOT`,

@@ -2,13 +2,28 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from . import adb
-from .config import ProjectConfig, load_config
+from .config import (
+    ConfigError,
+    ProjectConfig,
+    ValidationResult,
+    create_default_config,
+    load_config,
+    validate_project,
+    write_config,
+)
 from .gradle import ApkOutput, build_variant, find_apk_output
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "init":
+        return init_command(argv[1:])
+    if argv and argv[0] == "validate":
+        return validate_command(argv[1:])
+
     parser = argparse.ArgumentParser(description="Interactive Android and Gradle development workflow helper.")
     parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
     parser.add_argument("--variant", help="Build and run this variant without opening the menu.")
@@ -20,6 +35,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         config = load_config(args.project)
+        validation = validate_project(config)
+        if not validation.ok:
+            print_validation(validation)
+            return 1
+
         if args.variant:
             run_variant(config, args.variant, args.serial, args.avd, args.build_only, not args.no_launch)
             return 0
@@ -31,6 +51,93 @@ def main(argv: list[str] | None = None) -> int:
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
+
+
+def init_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Create .android-dev-flow.json for an Android/Gradle project.")
+    parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
+    parser.add_argument("--name", help="Project display name. Defaults to Gradle rootProject.name or directory name.")
+    parser.add_argument("--module", help="Android app module. Defaults to detected app module or app.")
+    parser.add_argument("--default-variant", default="developDebug", help="Default Gradle variant.")
+    parser.add_argument(
+        "--variant",
+        action="append",
+        default=[],
+        metavar="LABEL=VARIANT",
+        help="Variant mapping. Can be used multiple times, for example --variant develop=developDebug.",
+    )
+    parser.add_argument("--force", action="store_true", help="Overwrite an existing .android-dev-flow.json.")
+    args = parser.parse_args(argv)
+
+    try:
+        project_dir = Path(args.project).expanduser().resolve() if args.project else Path.cwd().resolve()
+        variants = parse_variant_args(args.variant) if args.variant else None
+        config = create_default_config(
+            project_dir,
+            project_name=args.name,
+            module=args.module,
+            default_variant=args.default_variant,
+            variants=variants,
+        )
+        config_file = write_config(config, overwrite=args.force)
+        print(f"Created config: {config_file}")
+        print_project_info(config)
+
+        validation = validate_project(config)
+        print_validation(validation)
+        return 0 if validation.ok else 1
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+def validate_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Validate android-dev-flow project configuration.")
+    parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
+    args = parser.parse_args(argv)
+
+    try:
+        config = load_config(args.project)
+        print_project_info(config)
+        validation = validate_project(config)
+        print_validation(validation)
+        return 0 if validation.ok else 1
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+def parse_variant_args(values: list[str]) -> dict[str, str]:
+    variants: dict[str, str] = {}
+    for value in values:
+        if "=" not in value:
+            raise ConfigError(f"variant must use LABEL=VARIANT format: {value}")
+        label, variant = value.split("=", 1)
+        label = label.strip()
+        variant = variant.strip()
+        if not label or not variant:
+            raise ConfigError(f"variant must use LABEL=VARIANT format: {value}")
+        variants[label] = variant
+    return variants
+
+
+def print_validation(validation: ValidationResult) -> None:
+    if validation.errors:
+        print("Validation errors:")
+        for error in validation.errors:
+            print(f"  - {error}")
+    if validation.warnings:
+        print("Validation warnings:")
+        for warning in validation.warnings:
+            print(f"  - {warning}")
+    if validation.ok:
+        print("Validation passed.")
 
 
 def interactive_menu(config: ProjectConfig) -> int:
