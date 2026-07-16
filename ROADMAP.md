@@ -14,6 +14,8 @@ Status: implemented baseline.
 - Initialize project settings with `adf init`.
 - Validate project layout and config with `adf validate`.
 - Show an interactive menu.
+- Support non-interactive `build`, `run`, `apk`, `devices`, and `avds`
+  commands.
 - Build a selected Gradle variant.
 - Detect generated APKs from `output-metadata.json`.
 - Select an online adb device when available.
@@ -36,27 +38,7 @@ Validation currently checks:
 
 These are the next implementation slices before broader device/debugging work.
 
-### 1. Non-Interactive Commands
-
-Add scriptable commands that mirror the interactive menu:
-
-```bash
-adf build develop
-adf run staging
-adf devices
-adf avds
-adf apk production
-```
-
-Planned behavior:
-
-- Accept variant labels from `.android-dev-flow.json`, such as `develop`.
-- Also accept exact Gradle variant names, such as `developDebug`.
-- Print the exact Gradle or adb command before execution.
-- Keep `adf` with no subcommand as the interactive menu.
-- Preserve `--project`, `--serial`, `--avd`, and `--no-launch` where useful.
-
-### 2. APK Packaging And Sharing
+### 1. APK Packaging And Sharing
 
 Add an APK export flow for manual QA and company sharing workflows:
 
@@ -85,7 +67,16 @@ The metadata text file should include:
 - build timestamp
 - SHA-256
 
-### 3. Stronger Gradle Awareness
+Planned behavior:
+
+- Accept variant labels and exact Gradle variant names.
+- Build before packaging by default.
+- Support `--no-build` to package an existing APK.
+- Write packages to `dist/` by default.
+- Support `--output-dir` for company share folders.
+- Keep generated filenames filesystem-safe and inspectable.
+
+### 2. Stronger Gradle Awareness
 
 Improve validation and command selection without making builds slower by
 default:
@@ -101,7 +92,7 @@ default:
 - Keep normal `adf validate` fast and local.
 - Improve error messages for common flavor/build-type mismatches.
 
-### 4. Test Coverage
+### 3. Test Coverage
 
 Grow tests around behavior that should stay stable:
 
@@ -114,6 +105,25 @@ Grow tests around behavior that should stay stable:
 
 Use Python's standard `unittest` first so contributors do not need extra test
 dependencies.
+
+### Completed: Non-Interactive Commands
+
+Implemented scriptable commands that mirror common interactive menu actions:
+
+```bash
+adf build develop
+adf run staging
+adf devices
+adf avds
+adf apk production
+```
+
+Implemented behavior:
+
+- Accept variant labels from `.android-dev-flow.json`, such as `develop`.
+- Also accept exact Gradle variant names, such as `developDebug`.
+- Keep `adf` with no subcommand as the interactive menu.
+- Preserve `--project`, `--serial`, `--avd`, and `--no-launch` where useful.
 
 ## Phase 2: Device Utilities
 

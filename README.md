@@ -152,9 +152,38 @@ Validate project setup before building or running:
 adf validate
 ```
 
+## Non-interactive commands
+
+Use `adf` without a subcommand for the interactive menu. Use subcommands for
+repeatable terminal workflows:
+
+```bash
+adf build develop
+adf run staging
+adf apk production
+adf devices
+adf avds
+```
+
+Variant arguments can be labels from `.android-dev-flow.json`, such as
+`develop`, or exact Gradle variant names, such as `developDebug`. If a variant
+is omitted, the configured `default_variant` is used.
+
+Useful run options:
+
+```bash
+adf run develop --serial emulator-5554
+adf run staging --avd Pixel_8_API_35
+adf run production --no-launch
+```
+
+`adf apk` prints an existing generated APK path. Run `adf build` first if the
+APK has not been generated yet.
+
 ## Current features
 
 - Interactive menu.
+- Non-interactive commands: `build`, `run`, `apk`, `devices`, and `avds`.
 - Project config initialization with `adf init`.
 - Project config and Gradle layout validation with `adf validate`.
 - Project config loading from `.android-dev-flow.json`.

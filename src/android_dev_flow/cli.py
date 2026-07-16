@@ -17,16 +17,33 @@ from .config import (
 from .gradle import ApkOutput, build_variant, find_apk_output
 
 
+class ProjectValidationError(RuntimeError):
+    pass
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if argv and argv[0] == "init":
         return init_command(argv[1:])
     if argv and argv[0] == "validate":
         return validate_command(argv[1:])
+    if argv and argv[0] == "build":
+        return build_command(argv[1:])
+    if argv and argv[0] == "run":
+        return run_command(argv[1:])
+    if argv and argv[0] == "apk":
+        return apk_command(argv[1:])
+    if argv and argv[0] == "devices":
+        return devices_command(argv[1:])
+    if argv and argv[0] == "avds":
+        return avds_command(argv[1:])
 
-    parser = argparse.ArgumentParser(description="Interactive Android and Gradle development workflow helper.")
+    parser = argparse.ArgumentParser(
+        description="Interactive Android and Gradle development workflow helper.",
+        epilog="Commands: init, validate, build, run, apk, devices, avds. Use '<command> --help' for details.",
+    )
     parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
-    parser.add_argument("--variant", help="Build and run this variant without opening the menu.")
+    parser.add_argument("--variant", help="Build and run this variant label or exact Gradle variant without opening the menu.")
     parser.add_argument("--build-only", action="store_true", help="Build selected variant but do not install it.")
     parser.add_argument("--serial", help="Use this adb device serial.")
     parser.add_argument("--avd", help="Start/use this AVD when no device is online.")
@@ -41,13 +58,16 @@ def main(argv: list[str] | None = None) -> int:
             return 1
 
         if args.variant:
-            run_variant(config, args.variant, args.serial, args.avd, args.build_only, not args.no_launch)
+            variant = resolve_variant(config, args.variant)
+            run_variant(config, variant, args.serial, args.avd, args.build_only, not args.no_launch)
             return 0
 
         return interactive_menu(config)
     except KeyboardInterrupt:
         print("\nCancelled.")
         return 130
+    except ProjectValidationError:
+        return 1
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
@@ -89,6 +109,8 @@ def init_command(argv: list[str]) -> int:
     except KeyboardInterrupt:
         print("\nCancelled.")
         return 130
+    except ProjectValidationError:
+        return 1
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
@@ -108,9 +130,134 @@ def validate_command(argv: list[str]) -> int:
     except KeyboardInterrupt:
         print("\nCancelled.")
         return 130
+    except ProjectValidationError:
+        return 1
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
+
+
+def build_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Build a configured Android variant.")
+    add_project_argument(parser)
+    parser.add_argument("variant", nargs="?", help="Variant label or exact Gradle variant. Defaults to configured default.")
+    args = parser.parse_args(argv)
+
+    try:
+        config = load_valid_config(args.project)
+        variant = resolve_variant(config, args.variant)
+        print(f"Building variant: {variant}")
+        build_variant(config.project_dir, config.module, variant)
+        print_apk(find_apk_output(config.project_dir, config.module, variant))
+        return 0
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except ProjectValidationError:
+        return 1
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+def run_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Build, install, and launch a configured Android variant.")
+    add_project_argument(parser)
+    parser.add_argument("variant", nargs="?", help="Variant label or exact Gradle variant. Defaults to configured default.")
+    parser.add_argument("--serial", help="Use this adb device serial.")
+    parser.add_argument("--avd", help="Start/use this AVD when no device is online.")
+    parser.add_argument("--no-launch", action="store_true", help="Install APK but do not launch it.")
+    args = parser.parse_args(argv)
+
+    try:
+        config = load_valid_config(args.project)
+        variant = resolve_variant(config, args.variant)
+        run_variant(config, variant, args.serial, args.avd, build_only=False, launch=not args.no_launch)
+        return 0
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except ProjectValidationError:
+        return 1
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+def apk_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Print the generated APK path for a configured Android variant.")
+    add_project_argument(parser)
+    parser.add_argument("variant", nargs="?", help="Variant label or exact Gradle variant. Defaults to configured default.")
+    args = parser.parse_args(argv)
+
+    try:
+        config = load_valid_config(args.project)
+        variant = resolve_variant(config, args.variant)
+        print_apk(find_apk_output(config.project_dir, config.module, variant))
+        return 0
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except ProjectValidationError:
+        return 1
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+def devices_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="List adb devices.")
+    parser.parse_args(argv)
+
+    try:
+        print_devices()
+        return 0
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+def avds_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="List installed Android Virtual Devices.")
+    parser.parse_args(argv)
+
+    try:
+        print_avds()
+        return 0
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+def add_project_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
+
+
+def load_valid_config(project_arg: str | None) -> ProjectConfig:
+    config = load_config(project_arg)
+    validation = validate_project(config)
+    if not validation.ok:
+        print_validation(validation)
+        raise ProjectValidationError("project validation failed")
+    return config
+
+
+def resolve_variant(config: ProjectConfig, requested: str | None) -> str:
+    if requested is None:
+        return config.default_variant
+    if requested in config.variants:
+        return config.variants[requested]
+    if requested in config.variants.values():
+        return requested
+
+    choices = ", ".join([*config.variants.keys(), *config.variants.values()])
+    raise ConfigError(f"unknown variant {requested!r}. Expected one of: {choices}")
 
 
 def parse_variant_args(values: list[str]) -> dict[str, str]:
