@@ -1,57 +1,113 @@
-# android-dev-flow-toolkit
+# Android Dev Flow Toolkit
 
-Interactive developer automation for Android and Gradle projects.
+`adf` is a cross-platform CLI for common Android development work: selecting a
+variant and device, building with the Gradle wrapper, installing and launching
+the APK, and preparing APKs for sharing.
 
-This project is starting as a practical toolkit for daily Android development:
-building variants, selecting devices/emulators, installing APKs, launching apps,
-and later capturing logs, bug reports, and GitLab build context.
+It supports Linux, macOS, and Windows and has no runtime Python dependencies.
 
-The first version intentionally uses Python's standard library only, so it can
-run on Linux, macOS, and Windows with Python 3.10+.
+## Requirements
 
-## Install globally
+Before installing, make sure the machine has:
 
-The recommended global installation uses
-[pipx](https://pipx.pypa.io/stable/how-to/install-pipx.html), which keeps the toolkit in
-an isolated environment and makes `adf` available from every terminal.
+- Python 3.10 or newer.
+- A JDK compatible with the Android project's Gradle version.
+- Android Studio or the Android SDK command-line tools.
+- The required SDK platforms, build tools, emulator images, and device drivers.
+- `adb` and `emulator`, either under `ANDROID_HOME`/`ANDROID_SDK_ROOT`, in a
+  standard SDK location, or on `PATH`.
+- Access to the Android project's Git repository.
 
-Install the first tagged release directly from GitHub:
+Useful checks:
+
+```bash
+python3 --version
+java -version
+adb version
+```
+
+On Windows, use `py --version` if `python3` is unavailable.
+
+## Clean global installation
+
+The recommended installation uses
+[pipx](https://pipx.pypa.io/stable/how-to/install-pipx.html). It installs `adf`
+in an isolated environment and exposes the command globally. Do not clone this
+toolkit or activate a virtual environment for normal use.
+
+### Linux
+
+On Ubuntu 23.04 or newer:
+
+```bash
+sudo apt update
+sudo apt install python3 python3-venv pipx
+pipx ensurepath
+```
+
+Open a new terminal, then install and verify the toolkit:
 
 ```bash
 pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
 adf --version
 ```
 
-No toolkit checkout or virtual-environment activation is needed after that.
-When a new version is released, replace the version in this command:
+For other Linux distributions, install Python 3.10+ and pipx with the system
+package manager, then run the same `pipx ensurepath` and `pipx install`
+commands.
+
+### macOS
+
+Using Homebrew:
 
 ```bash
-pipx install --force "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.2.0.zip"
+brew install python pipx
+pipx ensurepath
 ```
 
-For toolkit development, install the local checkout in editable mode:
+Open a new terminal, then install and verify the toolkit:
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install -e .
+pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
+adf --version
 ```
 
-On Windows, activate with `.venv\Scripts\Activate.ps1` instead. See
-[Global installation](#global-installation-by-operating-system) for pipx setup.
+### Windows PowerShell
 
-## Quick start
+Install Python 3.10 or newer first. The Python launcher (`py`) should be
+available in PowerShell.
 
-From an Android project directory:
+```powershell
+py -m pip install --user pipx
+py -m pipx ensurepath
+```
+
+Open a new PowerShell window, then install and verify the toolkit:
+
+```powershell
+pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
+adf --version
+```
+
+If `adf` is not found after installation, open a new terminal and run
+`pipx ensurepath` again.
+
+## Configure an Android project
+
+Only one maintainer needs to perform this setup for each Android repository.
+From the project root:
 
 ```bash
 adf init
 adf validate
-adf
+adf wrapper
 ```
 
-Inside an Android project, `adf init` creates `.android-dev-flow.json`:
+`adf init` detects the project name, application modules, and common Android
+variants. Review `.android-dev-flow.json` before committing it.
+
+For a project with develop, staging, and production debug variants, an explicit
+configuration can look like this:
 
 ```json
 {
@@ -60,29 +116,19 @@ Inside an Android project, `adf init` creates `.android-dev-flow.json`:
   "modules": [
     "app"
   ],
-  "default_variant": "debug",
-  "variants": "auto"
+  "default_variant": "developDebug",
+  "variants": {
+    "develop": "developDebug",
+    "staging": "stagingDebug",
+    "production": "productionDebug"
+  }
 }
 ```
 
-Then run:
+Alternatively, keep `"variants": "auto"` to detect variants from the module's
+Gradle build file.
 
-```bash
-adf
-```
-
-## Add the project wrapper
-
-A toolkit maintainer installs `adf` globally once, then generates a pinned copy
-inside each Android project:
-
-```bash
-cd /path/to/android/project
-adf init
-adf wrapper
-```
-
-Commit all generated project setup files:
+Commit these files to the Android repository:
 
 ```text
 .android-dev-flow.json
@@ -92,255 +138,114 @@ adfw.bat
 .adf/wrapper/version.txt
 ```
 
-After teammates clone the Android repository, they do not need to install this
-toolkit. They can immediately use the pinned version:
+The committed wrapper pins the toolkit version used by the project. Teammates
+who use the wrapper do not need a global `adf` installation; they only need
+Python 3.10+ and the Android/JDK requirements above.
+
+## Teammate workflow
+
+After cloning the configured Android project:
 
 ```bash
 # Linux and macOS
 ./adfw validate
 ./adfw
+```
 
+```powershell
 # Windows
 adfw.bat validate
 adfw.bat
 ```
 
-The wrapper changes to the Android project root before running, so it also works
-when called from another directory. It only requires Python 3.10 or newer.
-
-To update the version embedded in an Android project, globally install the new
-toolkit release and regenerate the wrapper:
+Running the wrapper without a command opens the interactive menu. Scriptable
+examples are:
 
 ```bash
-adf wrapper --force
+./adfw build develop
+./adfw run develop
+./adfw run staging --serial emulator-5554
+./adfw run production --no-launch
+./adfw apk develop
+./adfw package staging
+./adfw devices
+./adfw avds
 ```
 
-Review and commit the changed wrapper files so every teammate receives the same
-version on their next project update.
+On Windows, replace `./adfw` with `adfw.bat`. A variant argument may be a label
+from `.android-dev-flow.json` or an exact Gradle variant. Omitting it uses the
+configured default variant.
 
-## Global installation by operating system
+## Global CLI usage
 
-Python 3.10 or newer is required.
-
-### Linux
-
-Use the operating-system package where available, then open a new terminal:
+Users who installed the toolkit globally can run the same commands with `adf`:
 
 ```bash
-sudo apt install pipx
-pipx ensurepath
-pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
-```
-
-### macOS
-
-```bash
-brew install pipx
-pipx ensurepath
-pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
-```
-
-### Windows PowerShell
-
-```powershell
-py -m pip install --user pipx
-py -m pipx ensurepath
-py -m pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
-```
-
-Restart the terminal after `pipx ensurepath`. Verify every installation with:
-
-```bash
-adf --version
-```
-
-## Project setup
-
-From an Android project root, initialize the toolkit config:
-
-```bash
-adf init
-```
-
-This creates `.android-dev-flow.json` with detected project name/module when
-possible and automatic variant detection:
-
-```json
-{
-  "project_name": "MyApp",
-  "module": "app",
-  "modules": [
-    "app"
-  ],
-  "default_variant": "debug",
-  "variants": "auto"
-}
-```
-
-If the Gradle project has multiple Android application modules, `adf init`
-stores all detected runnable modules in `modules` and keeps `module` as the
-default module for scriptable commands:
-
-```json
-{
-  "project_name": "MyApp",
-  "module": "app",
-  "modules": [
-    "app",
-    "analoge_clock",
-    "memory_game"
-  ],
-  "default_variant": "debug",
-  "variants": "auto"
-}
-```
-
-The default module prefers `app` when it exists, otherwise the first detected
-Android application module. Override the default when needed:
-
-```bash
-adf init --module app
-adf init --module mobile
-```
-
-With `variants` set to `auto`, the toolkit reads the configured module's
-`build.gradle` or `build.gradle.kts`, detects common Android `productFlavors`
-and `buildTypes`, and exposes detected variants in the menu and commands. For
-an app without flavors, labels include `debug` and `release`. For a flavored
-app, labels combine flavor and build type, such as `<flavor>-debug` and
-`<flavor>-release`. The default variant prefers debug when available.
-
-You can customize values during initialization:
-
-```bash
-adf init \
-  --name MyApp \
-  --module app \
-  --default-variant qaDebug \
-  --variant qa=qaDebug \
-  --variant demo=demoDebug
-```
-
-Passing `--variant` writes a fixed variant map instead of `variants: "auto"`.
-
-Overwrite an existing config only when intended:
-
-```bash
-adf init --force
-```
-
-Validate project setup before building or running:
-
-```bash
+adf
 adf validate
-```
-
-## Usage help
-
-Show the complete usage guide:
-
-```bash
+adf build develop
+adf run staging
+adf package production
 adf help
-```
-
-Show command-specific help and examples:
-
-```bash
-adf help init
-adf help build
 adf help run
-adf help package
 ```
-
-## Non-interactive commands
-
-Use `adf` without a subcommand for the interactive menu. The menu exposes Run,
-Build, Show APK, and Package APK actions for each configured variant, plus
-device, AVD, and project info actions.
-
-When multiple Android application modules are configured, Run asks which
-runnable module and variant to use. Project info lists configured Android
-application modules and marks the default module.
-
-Use subcommands for repeatable terminal workflows:
-
-```bash
-adf build <variant-label>
-adf run <variant-label>
-adf apk <variant-label>
-adf package <variant-label>
-adf devices
-adf avds
-```
-
-Variant arguments can be detected labels from `.android-dev-flow.json` or exact
-Gradle variant names. If a variant is omitted, the configured `default_variant`
-is used.
 
 Useful run options:
 
 ```bash
-adf run <variant-label> --serial emulator-5554
-adf run <variant-label> --avd Pixel_8_API_35
-adf run <variant-label> --no-launch
+adf run develop --serial emulator-5554
+adf run develop --avd Pixel_8_API_35
+adf run develop --no-launch
 ```
 
-`adf apk` prints an existing generated APK path. Run `adf build` first if the
-APK has not been generated yet.
+`adf package` builds by default and writes a shareable APK plus a metadata file
+to `dist/`. Use `--no-build` to package an existing APK or `--output-dir DIR`
+to choose another destination.
 
-## APK packaging
+## Upgrade
 
-Use `adf package` to create a shareable APK copy and metadata file:
+Replace `v0.1.0` in the install URL with the desired published release tag,
+then reinstall it. For example, reinstalling `v0.1.0` uses:
 
 ```bash
-adf package <variant-label>
+pipx install --force "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
+adf --version
 ```
 
-By default this builds first, finds the generated APK through Gradle's
-`output-metadata.json`, and writes files to `dist/`:
-
-```text
-dist/MyApp-debug-v1.2.3-42.apk
-dist/MyApp-debug-v1.2.3-42.txt
-```
-
-The metadata file includes project/module/variant details, application ID,
-version name/code, source APK path, packaged APK path, git branch, git commit,
-build timestamp, and SHA-256.
-
-Package an existing APK without rebuilding:
+To update the version pinned in an Android repository:
 
 ```bash
-adf package <variant-label> --no-build
+cd /path/to/android/project
+adf wrapper --force
 ```
 
-Write to a custom folder:
+Review and commit the changed wrapper files. Teammates receive the upgrade when
+they update the Android repository.
+
+## Uninstall
+
+Remove a global installation with:
 
 ```bash
-adf package <variant-label> --output-dir /path/to/company/share
+pipx uninstall android-dev-flow-toolkit
 ```
 
-## Current features
+Project wrappers remain available because they are committed to each Android
+repository.
 
-- Interactive menu.
-- Non-interactive commands: `build`, `run`, `apk`, `package`, `devices`, and
-  `avds`.
-- Project-pinned `adfw` and `adfw.bat` generation with `adf wrapper`.
-- Global CLI installation through `pipx` and tagged GitHub archives.
-- Project config initialization with `adf init`.
-- Project config and Gradle layout validation with `adf validate`.
-- Project config loading from `.android-dev-flow.json`.
-- Automatic Android variant detection from module Gradle files.
-- Gradle wrapper detection across Linux, macOS, and Windows.
-- ADB and emulator tool detection from `ANDROID_HOME`, `ANDROID_SDK_ROOT`,
-  common SDK locations, or `PATH`.
-- Build a selected Gradle variant.
-- Locate the generated APK through Gradle's `output-metadata.json`.
-- Export shareable APK copies and metadata files with `adf package`.
-- Select an online adb device, or start an installed AVD when no device is
-  online.
-- Install and launch the generated APK.
+## Toolkit development
 
-## Roadmap
+For contributors working on this repository:
 
-See [ROADMAP.md](ROADMAP.md).
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -e .
+python -m unittest discover -v
+```
+
+On Windows, activate with `.venv\Scripts\Activate.ps1`.
+
+See [ROADMAP.md](ROADMAP.md) for planned work and [CHANGELOG.md](CHANGELOG.md)
+for released changes. This project is licensed under the [MIT License](LICENSE).
