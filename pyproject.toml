@@ -17,10 +17,18 @@ classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Topic :: Software Development :: Build Tools"
 ]
+
+[project.urls]
+Homepage = "https://github.com/sina73azar/android-dev-flow-toolkit"
+Repository = "https://github.com/sina73azar/android-dev-flow-toolkit.git"
+Issues = "https://github.com/sina73azar/android-dev-flow-toolkit/issues"
+Changelog = "https://github.com/sina73azar/android-dev-flow-toolkit/blob/master/CHANGELOG.md"
 
 [project.scripts]
 adf = "android_dev_flow.cli:main"

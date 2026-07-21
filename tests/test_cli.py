@@ -18,6 +18,7 @@ from android_dev_flow.cli import (
     resolve_variant,
     run_menu_action,
     run_command,
+    wrapper_command,
 )
 from android_dev_flow.config import ConfigError, ProjectConfig
 from android_dev_flow.gradle import ApkOutput
@@ -242,8 +243,24 @@ class CliTests(unittest.TestCase):
         self.assertEqual(print_mock.call_count, 2)
 
     def test_command_usage_exists_for_all_public_commands(self) -> None:
-        for command in ("help", "init", "validate", "build", "run", "apk", "package", "devices", "avds"):
+        for command in ("help", "init", "validate", "build", "run", "apk", "package", "devices", "avds", "wrapper"):
             self.assertIsNotNone(command_usage(command))
+
+    def test_wrapper_command_creates_project_wrapper(self) -> None:
+        with (
+            patch("android_dev_flow.cli.create_project_wrapper") as create_wrapper,
+            patch("builtins.print"),
+        ):
+            project_dir = Path("/tmp/sample-app").resolve()
+            create_wrapper.return_value.unix_launcher = project_dir / "adfw"
+            create_wrapper.return_value.windows_launcher = project_dir / "adfw.bat"
+            create_wrapper.return_value.archive = project_dir / ".adf/wrapper/adf.pyz"
+            create_wrapper.return_value.version_file = project_dir / ".adf/wrapper/version.txt"
+
+            status = wrapper_command(["--project", str(project_dir), "--force"])
+
+        self.assertEqual(status, 0)
+        create_wrapper.assert_called_once_with(project_dir, overwrite=True)
 
 
 def sample_config(application_modules: tuple[str, ...] = ("app",)) -> ProjectConfig:

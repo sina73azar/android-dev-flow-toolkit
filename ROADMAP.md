@@ -30,6 +30,8 @@ Status: implemented baseline.
 - Start an installed AVD when no adb device is online.
 - Install and launch the selected variant.
 - Keep the implementation dependency-light and cross-platform.
+- Install the `adf` command globally through an isolated `pipx` environment.
+- Generate project-pinned Linux/macOS and Windows launchers with `adf wrapper`.
 
 Validation currently checks:
 
@@ -171,9 +173,10 @@ Implemented behavior:
 
 ## Phase 6: Reusable Project Distribution
 
-- Publish on GitHub.
-- Add installation docs for Linux, macOS, and Windows.
-- Provide shell, PowerShell, and batch wrappers.
+- Publish on GitHub. Initial tagged release automation is implemented.
+- Add installation docs for Linux, macOS, and Windows. Implemented for `pipx`.
+- Provide shell and batch project wrappers. Implemented with `adf wrapper`.
+- Later: add a PowerShell-native launcher if the batch launcher is insufficient.
 - Provide example configs for Android apps, Android libraries, and generic
   Gradle projects.
 - Add tests around config parsing, Gradle task naming, APK metadata parsing,

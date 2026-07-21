@@ -9,25 +9,45 @@ and later capturing logs, bug reports, and GitLab build context.
 The first version intentionally uses Python's standard library only, so it can
 run on Linux, macOS, and Windows with Python 3.10+.
 
-## Quick start
+## Install globally
 
-From this repository:
+The recommended global installation uses
+[pipx](https://pipx.pypa.io/stable/how-to/install-pipx.html), which keeps the toolkit in
+an isolated environment and makes `adf` available from every terminal.
+
+Install the first tagged release directly from GitHub:
 
 ```bash
-PYTHONPATH=src python3 -m android_dev_flow --project /path/to/android/project
+pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
+adf --version
 ```
 
-Or install the CLI once and run it from any Android project:
+No toolkit checkout or virtual-environment activation is needed after that.
+When a new version is released, replace the version in this command:
 
 ```bash
-cd /path/to/android-dev-flow-toolkit
+pipx install --force "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.2.0.zip"
+```
+
+For toolkit development, install the local checkout in editable mode:
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e .
+```
 
-cd /path/to/android/project
+On Windows, activate with `.venv\Scripts\Activate.ps1` instead. See
+[Global installation](#global-installation-by-operating-system) for pipx setup.
+
+## Quick start
+
+From an Android project directory:
+
+```bash
 adf init
+adf validate
 adf
 ```
 
@@ -51,56 +71,87 @@ Then run:
 adf
 ```
 
-## Installing the CLI for a project
+## Add the project wrapper
 
-Install `android-dev-flow-toolkit` from this repository, not inside each Android
-project. The install creates the `adf` command and points it back to this source
-tree in editable mode, so changes in `src/android_dev_flow/` are used
-immediately.
+A toolkit maintainer installs `adf` globally once, then generates a pinned copy
+inside each Android project:
 
 ```bash
-cd /home/azarfarshi.s@drp.local/Documents/android-dev-flow-toolkit
-
-python3 -m venv .venv
-source .venv/bin/activate
-
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install -e .
-```
-
-Then use the CLI from an Android project directory:
-
-```bash
-cd /home/azarfarshi.s@drp.local/StudioProjects/kotlin_new_android_design
+cd /path/to/android/project
 adf init
-adf validate
-adf
+adf wrapper
 ```
 
-`adf init` creates `.android-dev-flow.json`. `adf validate` checks that the
-project has a Gradle settings file, Gradle wrapper, configured module, module
-build file, and valid variant names.
+Commit all generated project setup files:
 
-If the Android project already has `.android-dev-flow.json` in its root, this
-is enough:
-
-```bash
-adf
+```text
+.android-dev-flow.json
+adfw
+adfw.bat
+.adf/wrapper/adf.pyz
+.adf/wrapper/version.txt
 ```
 
-When opening a new terminal, activate the toolkit environment again before using
-`adf`:
+After teammates clone the Android repository, they do not need to install this
+toolkit. They can immediately use the pinned version:
 
 ```bash
-source /home/azarfarshi.s@drp.local/Documents/android-dev-flow-toolkit/.venv/bin/activate
+# Linux and macOS
+./adfw validate
+./adfw
+
+# Windows
+adfw.bat validate
+adfw.bat
 ```
 
-If editable install fails with a `build_editable` or PEP 660 error, upgrade the
-packaging tools inside the virtual environment:
+The wrapper changes to the Android project root before running, so it also works
+when called from another directory. It only requires Python 3.10 or newer.
+
+To update the version embedded in an Android project, globally install the new
+toolkit release and regenerate the wrapper:
 
 ```bash
-python -m pip install --upgrade pip setuptools wheel
-python -m pip install -e .
+adf wrapper --force
+```
+
+Review and commit the changed wrapper files so every teammate receives the same
+version on their next project update.
+
+## Global installation by operating system
+
+Python 3.10 or newer is required.
+
+### Linux
+
+Use the operating-system package where available, then open a new terminal:
+
+```bash
+sudo apt install pipx
+pipx ensurepath
+pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
+```
+
+### macOS
+
+```bash
+brew install pipx
+pipx ensurepath
+pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
+```
+
+### Windows PowerShell
+
+```powershell
+py -m pip install --user pipx
+py -m pipx ensurepath
+py -m pipx install "https://github.com/sina73azar/android-dev-flow-toolkit/archive/refs/tags/v0.1.0.zip"
+```
+
+Restart the terminal after `pipx ensurepath`. Verify every installation with:
+
+```bash
+adf --version
 ```
 
 ## Project setup
@@ -274,6 +325,8 @@ adf package <variant-label> --output-dir /path/to/company/share
 - Interactive menu.
 - Non-interactive commands: `build`, `run`, `apk`, `package`, `devices`, and
   `avds`.
+- Project-pinned `adfw` and `adfw.bat` generation with `adf wrapper`.
+- Global CLI installation through `pipx` and tagged GitHub archives.
 - Project config initialization with `adf init`.
 - Project config and Gradle layout validation with `adf validate`.
 - Project config loading from `.android-dev-flow.json`.

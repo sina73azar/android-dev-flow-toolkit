@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from . import adb
 from .apk_package import PackageResult, package_apk
 from .config import (
@@ -16,6 +17,7 @@ from .config import (
     write_config,
 )
 from .gradle import ApkOutput, build_variant, find_apk_output
+from .wrapper import create_project_wrapper
 
 
 class ProjectValidationError(RuntimeError):
@@ -27,6 +29,9 @@ MenuAction = tuple[str, str, str | None]
 
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] in {"version", "--version", "-V"}:
+        print(f"android-dev-flow-toolkit {__version__}")
+        return 0
     if argv and argv[0] in {"help", "usage"}:
         return help_command(argv[1:])
     if argv and argv[0] == "init":
@@ -45,10 +50,12 @@ def main(argv: list[str] | None = None) -> int:
         return devices_command(argv[1:])
     if argv and argv[0] == "avds":
         return avds_command(argv[1:])
+    if argv and argv[0] == "wrapper":
+        return wrapper_command(argv[1:])
 
     parser = argparse.ArgumentParser(
         description="Interactive Android and Gradle development workflow helper.",
-        epilog="Commands: help, init, validate, build, run, apk, package, devices, avds. Use 'help' for full usage.",
+        epilog="Commands: help, init, validate, build, run, apk, package, devices, avds, wrapper. Use 'help' for full usage.",
     )
     parser.add_argument("--project", help="Android/Gradle project directory. Defaults to current directory.")
     parser.add_argument("--variant", help="Build and run this variant label or exact Gradle variant without opening the menu.")
@@ -99,7 +106,7 @@ def help_command(argv: list[str]) -> int:
 
 
 def command_names() -> list[str]:
-    return ["help", "init", "validate", "build", "run", "apk", "package", "devices", "avds"]
+    return ["help", "init", "validate", "build", "run", "apk", "package", "devices", "avds", "wrapper"]
 
 
 def usage_guide() -> str:
@@ -116,12 +123,20 @@ Usage:
   adf package [VARIANT] [--project DIR] [--no-build] [--output-dir DIR]
   adf devices
   adf avds
+  adf wrapper [--project DIR] [--force]
+  adf --version
 
 Setup:
   cd /path/to/android/project
   adf init
+  adf wrapper
   adf validate
   adf
+
+Team wrapper:
+  Commit adfw, adfw.bat, .adf/wrapper/adf.pyz, and
+  .adf/wrapper/version.txt to the Android project. Teammates can then run
+  ./adfw on Linux/macOS or adfw.bat on Windows without installing adf.
 
 Interactive menu:
   Running adf without a command opens the menu. The menu includes Run, Build,
@@ -148,6 +163,7 @@ Examples:
   adf run <variant-label> --avd Pixel_8_API_35 --no-launch
   adf apk <variant-label>
   adf package <variant-label> --output-dir /path/to/company/share
+  adf wrapper
 
 Use adf help <command> for command-specific examples.""".strip()
 
@@ -255,6 +271,25 @@ List installed Android Virtual Devices.
 
 Example:
   adf avds""",
+        "wrapper": """Usage:
+  adf wrapper [--project DIR] [--force]
+
+Create project-pinned launchers and a self-contained toolkit archive.
+
+Generated files:
+  adfw
+  adfw.bat
+  .adf/wrapper/adf.pyz
+  .adf/wrapper/version.txt
+
+Commit these files to the Android project so teammates can run ./adfw on
+Linux/macOS or adfw.bat on Windows. Run again with --force when upgrading the
+pinned toolkit version.
+
+Examples:
+  adf wrapper
+  adf wrapper --project /path/to/android/project
+  adf wrapper --force""",
     }
     return usages.get(command)
 
@@ -441,6 +476,28 @@ def avds_command(argv: list[str]) -> int:
 
     try:
         print_avds()
+        return 0
+    except KeyboardInterrupt:
+        print("\nCancelled.")
+        return 130
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+
+
+def wrapper_command(argv: list[str]) -> int:
+    parser = argparse.ArgumentParser(description="Create project-pinned Android Dev Flow launchers.")
+    add_project_argument(parser)
+    parser.add_argument("--force", action="store_true", help="Replace existing generated wrapper files.")
+    args = parser.parse_args(argv)
+
+    try:
+        project_dir = Path(args.project).expanduser().resolve() if args.project else Path.cwd().resolve()
+        result = create_project_wrapper(project_dir, overwrite=args.force)
+        print(f"Created wrapper for android-dev-flow-toolkit {__version__}:")
+        for path in (result.unix_launcher, result.windows_launcher, result.archive, result.version_file):
+            print(f"  {path.relative_to(project_dir)}")
+        print("Commit these files so teammates can run ./adfw or adfw.bat after cloning the project.")
         return 0
     except KeyboardInterrupt:
         print("\nCancelled.")
